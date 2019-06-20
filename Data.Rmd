@@ -1,0 +1,234 @@
+---
+title: "Stats in R for MBE2017"
+author: "Luis Malpica Cruz"
+date: "May 2017"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+##Set up session
+```{r Setup, include=T,comment=FALSE, warning=FALSE}
+#Set up your workspace
+rm(list=ls()) #remove debris from 'Environment'
+
+# Set your working directory 
+# (manually use these)
+#getwd()
+#setwd(dir = "/Users/Dudisimo/Documents/PhD/TAing/Rworkshop_MBE2017") #diferent for each machine
+# or by cliking 'Session' -> 'Set working directory'
+
+# Install (if required) and load packages needed
+#install.packages("ggplot2")
+#install.packages("doBy")
+
+# If installed or after installing them, load them in each R session (when using them)
+library("doBy")
+library(ggplot2)
+
+#A custom theme for ggplot
+#This only creates a set of instructions that R will feed to ggplot latter on
+theme_gg <- function(base_size = 11, base_family = "") {
+  theme_light() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      strip.background = element_rect(fill = NA, colour = NA),
+      strip.text.x = element_text(colour = "grey10"),
+      axis.text = element_text(colour = "grey20",size=12),
+      axis.title = element_text(colour = "grey20",size=16),
+      legend.title = element_text(colour = "grey20", size = rel(1.2)),
+      panel.border = element_rect(fill = NA, colour = "grey70", size = 1),
+      legend.key.size = unit(0.8, "lines"),
+      legend.text = element_text(size = rel(1), colour = "grey20"),
+      legend.key = element_rect(colour = NA)
+    )
+}
+```
+
+Remember the data analysis cycle: Tidy data -> Transform data -> Visualize -> Model (repeat)
+We first load our data into R and verify tidyness
+
+First let's explore our data and  make a simple plots, our data has just two categorical variables (Depth and Students) and two continuous variables, Sea cucumber abundance (dependent variable) and rugosity (independent variable).
+
+##Data exploration and visualization
+```{r Data, include=T}
+# Read in data####
+cukes <- read.csv("data/orange.cukes.csv",  stringsAsFactors = T, header=T) #factor, character with a certain number of categories
+str(cukes) #Always a good idea to explore first your data to check for tidyness
+summary(cukes) #Basic summary stats on data
+
+#Visualize data####
+#Remember that plots take data in the form "independent variable (x), dependent variable (y)"
+#Visualize all your data in a quick line
+plot(cukes)
+
+#Visualize categorical variables
+#These plots show continuous vs. categorical data as a box and whisker plot, where the middle line is the median and the whiskers represent the 25th and 75th lower and upper quartiles
+plot(cukes$orange_cukes ~ cukes$Depth)
+plot(cukes$orange_cukes ~ cukes$Students)
+
+#The basic x ~ y plot for continuous variables
+plot(cukes$rugosity, cukes$orange_cukes) 
+
+```
+
+From these early visualizations we observed that rugosity migh have an effect on sea cucumber abundance.
+Let's try making a linear model of the relationship between sea cucumber abundance and rugosity
+Remember the basic linear models always take data in the form dependent variable ~ independent variable:
+y = a + bx
+which estimates an intercept (a) and a slope (b)
+
+## BASIC ANALYSIS: Linear regression model (continuous variables)
+```{r Linear model 1, include=T}
+#We can check our basic plot between continuous variables
+plot(cukes$rugosity, cukes$orange_cukes) 
+
+cukemodel <- lm(orange_cukes ~ rugosity, data=cukes) 
+#After model creation we need to make sure some assumptions are met to validate our model
+#We look for homocedasticity and normality in residuals 
+par(mfrow = c(2,2)) #this tells R to set up a 2x2 grid of 4 plots
+plot(cukemodel) #create the diagnostic plots
+par(mfrow = c(1,1)) #turn off the 4x4 grid setup or all your future plots will go onto a grid
+#the plots look ok, so now let's look at our model summary!
+summary(cukemodel) 
+#With the lm output you get the estimate for the intercept (a), the slope (b), 
+#the standard error for each estimate, and the p-values for those estimates 
+#(remember <0.05 is a 'significant' value).
+#The R-squared values tells you what proportion of the variation in the data
+#is explained by the independent variable(s) (here rugosity)
+
+#Visualization of continous variables with ggplot####
+#We can dress up our plot a bit by adding labels color and the model fit
+#We do not need to summarize the data in this case but need to predict values based on model for model fit
+cukes$predicted1=predict(cukemodel)
+#Plot of pretty plot
+ggplot(data=cukes, aes(x=rugosity, y=orange_cukes, color=Depth)) + 
+  geom_point() +
+# stat_smooth(method = "lm", col = "blue", se = F) +
+  geom_line(aes(x = rugosity, y = predicted1)) +
+  labs(y="Sea cucumber abundance") +
+  labs(x="Rugosity") +
+  theme_gg()
+
+```
+
+It's great that we found a significant relationship between sea cucumber abundance and rugosity, but we know that some of the categorical variables also influenced sea cucumber abundance, right?
+Let's now use the same linear model approach but using Depth and Rugosity as our predictive variables (independent) and test their effect on sea cucumber abundance. Our model will have the same principle but change to this form:
+y = b0 + b1x1 + b2x2
+which estimates two intercepts (b0 and b1) for each of our categories, and a slope (b2) for our continuous variable
+
+## BASIC ANALYSIS: Linear regression model (categorical and continuous variables)
+```{r Linear model 2, include=T}
+#We can check our basic plot between continuous variables
+plot(cukes$rugosity, cukes$orange_cukes) 
+#And between our depth categories
+plot(cukes$orange_cukes ~ cukes$Depth)
+
+cukemodel2 <- lm(orange_cukes ~ Depth + rugosity, data=cukes)
+par(mfrow = c(2,2)) #this tells R to set up a 2x2 grid of 4 plots
+plot(cukemodel2) #create the diagnostic plots
+#we look for homocedasticity and normality in residual 
+par(mfrow = c(1,1)) #turn off the 4x4 grid setup or all your future plots will go onto a grid
+#the plots look ok, so now let's look at our model summary!
+summary(cukemodel2) 
+#With the lm output you get the estimate for the intercept (a), the slope (b), 
+#the standard error for each estimate, and the p-values for those estimates 
+#(remember <0.05 is a 'significant' value).
+#The R-squared values tells you what proportion of the variation in the data
+#is explained by the independent variable(s) (here rugosity)
+
+#Visualization of continous variables with ggplot####
+#We can dress up our plot a bit by adding labels color and the model fit
+#We need to predict values based on model for model fit
+cukes$predicted2=predict(cukemodel2)
+#Plot of pretty plot
+ggplot(data=cukes, aes(x=rugosity, y=orange_cukes, color=Depth)) + 
+  geom_point() +
+  facet_wrap("Depth") +
+  geom_line(aes(x = rugosity, y = predicted2)) +
+  labs(y="Sea cucumber abundance") +
+  labs(x="Rugosity") +
+  theme_gg()
+
+```
+
+From these early visualizations we can hypothesize that there are differences between 
+categorical variables. 
+Let's use some basic stats to test wether these hypothesis are true
+
+## BASIC ANALYSIS: T-tests
+```{r T-tests, include=T}
+
+#Testing differences between two groups of data (cateorical variable)
+#How could we determine if abundance at the two depths is different? using a T-test!
+#A t-test tests whether the true difference in means is equal to 0
+plot(cukes$orange_cukes ~ cukes$Depth)
+t.test(cukes$orange_cukes ~ cukes$Depth) 
+#Shows that these groups are significantly different at Alpha = 0.05!
+#T-test output shows variables tested, t value, degrees of freedom, p-value, 
+#means of groups, alternative hyp
+
+#Visualization of categorical data (2 levels) with ggplot####
+#First, it is necessary to summarize the data. 
+#We will use summaryBy() to estimate mean and some error around it, in this case SD
+cukes_se <- summaryBy(orange_cukes ~ Depth, cukes, FUN=c(mean,sd,var))
+#View(cukes_se)
+
+# Error bars represent standard deviation
+ggplot(data=cukes_se, aes(x=Depth, y=orange_cukes.mean, fill=Depth)) + 
+  geom_bar(position=position_dodge(), stat="identity") +
+  geom_errorbar(aes(ymin=orange_cukes.mean-orange_cukes.sd, ymax=orange_cukes.mean+orange_cukes.sd),
+                width=.2,                    # Width of the error bars
+                position=position_dodge(.9)) +
+  labs(y="Sea cucumber abundance") +
+  labs(x="Depth") +
+  theme_gg()
+
+```
+
+## BASIC ANALYSIS: ANOVAs
+```{r ANOVA, include=T}
+
+#What if we want to look at more than two groups?
+#Maybe the students collecting the data influenced the results by using different methodology. 
+plot(cukes$orange_cukes ~ cukes$Students)
+
+# Data shows like there are some differences for group 1,2? 
+# Why? Maybe they were just in the wrong habitat for sea cucumbers? 
+# We can test if more than 2 groups have different means using an ANOVA.
+
+#For the basic ANOVA function in R we need a balanced number of trials for each group for ANOVA,
+summary(cukes)
+#so when you are doing this on your own data make sure that all groups have the same number of measurements
+# For our cukes all groups did the same number of quadrats at shallow and deep so sampling is "balanced"
+cuke_anova <- aov(cukes$orange_cukes ~ cukes$Students)
+summary(cuke_anova)
+#Shows there are some significant differences between groups at Alpha = 0.05!
+#ANOVA output shows categorical variable tested, degrees of freedom, Sum of Squares, 
+#F value, p-value, significance codes
+
+#Once we found differences between groups, we need to know where are those differences
+#We use Tukey's posthoc test for that
+cuke_posthoc <- TukeyHSD(x=cuke_anova, 'cukes$Students', conf.level=0.95)
+cuke_posthoc
+#Output gives the differences between groups (means) and their p-values
+
+#Visualization of categorical data (4 levels) with ggplot####
+#Let's visualize this nicely
+#Again, first, we summarize the data to estimate mean and some error
+cukes_sd2 <- summaryBy(orange_cukes ~ Students, cukes, FUN=c(mean,sd,var))
+
+# Error bars represent standard deviation
+ggplot(cukes_sd2, aes(x=Students, y=orange_cukes.mean, fill=Students)) + 
+  geom_bar(position=position_dodge(), stat="identity") +
+  geom_errorbar(aes(ymin=orange_cukes.mean-orange_cukes.sd, ymax=orange_cukes.mean+orange_cukes.sd),
+                width=.2,                    # Width of the error bars
+                position=position_dodge(.9)) +
+  labs(y="Sea cucumber abundance") +
+  labs(x="Depth") +
+  theme_gg()
+
+```
+
+
